@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>The Great Dalmuti</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- 게임 시작 전 설정 화면 -->
+    <div id="setup-screen" class="screen active">
+        <h1 class="title">The Great Dalmuti</h1>
+        <div class="setup-control">
+            <h2>Select Number of Players</h2>
+            <div class="player-count-selector">
+                <button id="minus-player-btn">&lt;</button>
+                <span id="player-count-display">4 Players</span>
+                <button id="plus-player-btn">&gt;</button>
+            </div>
+        </div>
+        <div id="ai-styles-container" class="setup-control">
+            <!-- AI 스타일 선택 UI가 여기에 동적으로 생성됩니다. -->
+        </div>
+        <button id="start-game-btn" class="action-button">Start Game</button>
+    </div>
+
+    <!-- 메인 게임 화면 -->
+    <div id="main-game-screen" class="screen">
+        <!-- 다른 플레이어 정보 (상단) -->
+        <div id="other-players-area" class="panel"></div>
+        
+        <!-- 테이블 (중앙) -->
+        <div id="table-area" class="panel"></div>
+
+        <!-- 로그 (테이블 아래) -->
+        <div id="log-panel" class="panel">
+            <div id="log-content"></div>
+        </div>
+
+        <!-- 내 손패 (하단) -->
+        <div id="player-hand-area" class="panel"></div>
+
+        <!-- 액션 버튼 (최하단) -->
+        <div id="action-area">
+            <button id="submit-btn" class="action-button">Submit</button>
+            <button id="pass-btn" class="action-button">Pass</button>
+        </div>
+    </div>
+
+    <!-- 게임 오버 화면 -->
+    <div id="game-over-screen" class="screen">
+        <h1 id="winner-text">Player wins!</h1>
+        <button id="play-again-btn" class="action-button">Play Again</button>
+    </div>
+    <script src="mcts.js" defer></script>
+    <script src="script.js"></script>
+</body>
+</html>

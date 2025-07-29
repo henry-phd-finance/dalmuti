@@ -1,0 +1,160 @@
+/* 기본 설정 */
+:root {
+    --card-width: 45px;
+    --card-height: 70px;
+    --background-color: #1a1a1a;
+    --panel-background: #2a2a2a;
+    --text-color: #f0f0f0;
+    --button-bg: #4CAF50;
+    --button-pass-bg: #f44336;
+    --button-disabled-bg: #555;
+}
+
+body, html {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    overflow: hidden;
+}
+
+/* 화면 전환 */
+.screen {
+    display: none;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 10px;
+}
+.screen.active {
+    display: flex;
+}
+
+/* 설정 화면 */
+#setup-screen {
+    justify-content: space-around;
+}
+.title { font-size: 2.5em; }
+.setup-control {
+    width: 90%;
+    max-width: 400px;
+    text-align: center;
+}
+.player-count-selector, .ai-style-selector > div {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    margin-top: 10px;
+}
+.ai-style-selector { margin-bottom: 10px; }
+#player-count-display, .ai-style-display { font-size: 1.5em; }
+
+/* 메인 게임 화면 레이아웃 */
+#main-game-screen {
+    justify-content: space-between;
+}
+.panel {
+    width: 100%;
+    box-sizing: border-box;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#other-players-area {
+    flex-grow: 2;
+    flex-direction: column;
+    justify-content: flex-start;
+    padding-top: 10px;
+    font-size: 0.8em;
+}
+#table-area {
+    flex-grow: 3;
+    position: relative; /* 카드 위치 기준 */
+}
+#log-panel {
+    flex-grow: 1.5; /* 높이를 제한하고 */
+    max-height: 110px; /* 스크롤 가능하도록 */
+    align-items: flex-start;
+    background-color: var(--panel-background);
+    border-radius: 8px;
+}
+#log-content {
+    width: 100%;
+    height: 100%;
+    overflow-y: auto; /* 내용이 많아지면 스크롤 */
+    font-size: 0.7em;
+}
+#log-content p { margin: 2px 5px; }
+
+#player-hand-area {
+    flex-grow: 4;
+    position: relative; /* 카드 위치 기준 */
+}
+
+/* 카드 스타일 */
+.card {
+    width: var(--card-width);
+    height: var(--card-height);
+    border: 2px solid #fff;
+    border-radius: 5px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.5em;
+    font-weight: bold;
+    color: white;
+    position: absolute; /* 겹치기를 위해 absolute 사용 */
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card.selected {
+    transform: translateY(-20px);
+    box-shadow: 0 5px 15px rgba(0, 255, 255, 0.4);
+}
+
+/* 다른 플레이어 정보 */
+.player-info {
+    width: 95%;
+    margin-bottom: 5px;
+}
+.current-turn {
+    color: #66ff66;
+    font-weight: bold;
+}
+.player-passed {
+    color: #ff6666;
+}
+
+/* 버튼 */
+#action-area {
+    display: flex;
+    width: 100%;
+    justify-content: space-around;
+    padding: 10px 0;
+}
+.action-button, .style-change-btn, #minus-player-btn, #plus-player-btn {
+    padding: 10px 20px;
+    font-size: 1.2em;
+    border: none;
+    border-radius: 8px;
+    color: white;
+    cursor: pointer;
+}
+#submit-btn { background-color: var(--button-bg); }
+#pass-btn { background-color: var(--button-pass-bg); }
+.action-button:disabled {
+    background-color: var(--button-disabled-bg);
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* 게임 오버 화면 */
+#game-over-screen {
+    text-align: center;
+}
