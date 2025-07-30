@@ -180,10 +180,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const nativeToUse = count - jokersToUse;
             for (let i = 0; i < nativeToUse; i++) player.hand.splice(player.hand.indexOf(rank), 1);
             for (let i = 0; i < jokersToUse; i++) player.hand.splice(player.hand.indexOf(13), 1);
+            
             this.tableCards = { cards: Array(nativeToUse).fill(rank).concat(Array(jokersToUse).fill(13)), effectiveRank: rank };
             this.log(`${player.name} plays ${count}x card ${rank} (eff).`);
+            
             this.consecutivePasses = 0;
             this.roundLeadIndex = playerIndex;
+            // --- 핵심 수정: 카드를 내면 패스 기록을 초기화하여 모두가 다시 플레이할 수 있게 합니다. ---
+            this.passedInRound.clear();
+
             if (player.hand.length === 0) {
                 this.gameOver = true;
                 this.winnerIndex = playerIndex;
@@ -195,18 +200,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
         player_pass(playerIndex) {
             const player = this.players[playerIndex];
-            this.log(`${player.name} passes.`);
+            // "auto-passes" 로그는 processNextTurn에서 처리하므로, 여기서는 일반 패스만 기록합니다.
+            if (!this.passedInRound.has(playerIndex)) {
+                 this.log(`${player.name} passes.`);
+            }
             this.passedInRound.add(playerIndex);
             this.consecutivePasses++;
 
             // 더 안정적인 새 라운드 시작 조건:
-            // 카드를 다 낸 사람 + 이번 라운드에 패스한 사람의 수가 (전체 플레이어 - 1)과 같거나 크면 새 라운드 시작
-            const outOfCardsCount = this.players.filter(p => p.hand.length === 0).length;
-            if (this.passedInRound.size + outOfCardsCount >= this.numPlayers - 1) {
+            // 카드를 가진 플레이어 중 패스하지 않은 사람이 1명 이하일 때 새 라운드를 시작합니다.
+            const activePlayersWithCards = this.players.filter(p => p.hand.length > 0).length;
+            if (activePlayersWithCards - this.passedInRound.size <= 1) {
                 this.log(`--- New round starts ---`);
                 this.tableCards = { cards: [], effectiveRank: 0 };
                 this.consecutivePasses = 0;
-                this.passedInRound.clear(); // 새 라운드가 시작되면 패스 기록을 깨끗하게 비웁니다.
+                this.passedInRound.clear();
                 this.turnIndex = this.roundLeadIndex;
                 if (this.players[this.turnIndex].hand.length === 0) {
                     this.advance_turn();
@@ -342,14 +350,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================
     function processNextTurn() {
         if (!gameState || gameState.gameOver) {
-            updateUI(); return;
+            updateUI(); 
+            return;
         }
-        const currentPlayer = gameState.getCurrentPlayer();
 
-        // 자동 패스 로직을 AI 플레이어에게만 적용합니다.
-        if (currentPlayer.isAi && gameState.passedInRound.has(gameState.turnIndex)) {
+        const currentPlayer = gameState.getCurrentPlayer();
+        
+        // 현재 플레이어가 이미 패스한 경우, 자동으로 턴을 넘깁니다.
+        if (gameState.passedInRound.has(gameState.turnIndex)) {
             gameState.log(`${currentPlayer.name} auto-passes.`);
-            gameState.player_pass(gameState.turnIndex);
+            gameState.player_pass(gameState.turnIndex); // 패스 규칙은 pass 함수에 위임
             updateUI();
             setTimeout(processNextTurn, 500); // 다음 턴으로 부드럽게 넘어감
             return;
