@@ -378,13 +378,18 @@ document.addEventListener('DOMContentLoaded', () => {
         logContent.innerHTML = gameState.gameLog.slice().reverse().map(line => `<p>${line}</p>`).join('');
     }
     
-    function runAiTurn() {
+        function runAiTurn() {
+        if (!gameState || gameState.gameOver || !gameState.getCurrentPlayer().isAi) return;
+        
+        gameState.gameLog.pop(); // "thinking..." 로그 제거
+
         const player = gameState.getCurrentPlayer();
+        const playerIndex = gameState.turnIndex;
         const style = player.style;
         let best_play;
 
         if (style === 'mcts') {
-            const mcts = new MCTS_AI({ iterations: 5000 });
+            const mcts = new MCTS_AI({ iterations: 1000 });
             best_play = mcts.find_best_move(gameState);
         } else {
             const handCounts = player.hand.reduce((acc, card) => { acc[card] = (acc[card] || 0) + 1; return acc; }, {});
@@ -396,31 +401,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 const rank = parseInt(r);
                 if (rank === 13) continue;
                 const count = handCounts[rank];
-                if (gameState.is_valid_move(gameState.turnIndex, rank, count)) possible_plays.push({ rank, count, jokers_used: 0, is_start: is_start_of_round });
+                if (gameState.is_valid_move(gameState.turnIndex, rank, count)) possible_plays.push({ rank, count, jokersUsed: 0, is_start: is_start_of_round });
                 if (numJokers > 0) {
                     for (let j = 1; j <= numJokers; j++) {
-                        if (gameState.is_valid_move(gameState.turnIndex, rank, count + j)) possible_plays.push({ rank, count: count + j, jokers_used: j, is_start: is_start_of_round });
+                        if (gameState.is_valid_move(gameState.turnIndex, rank, count + j)) possible_plays.push({ rank, count: count + j, jokersUsed: j, is_start: is_start_of_round });
                     }
                 }
             }
             if (numJokers > 0 && gameState.is_valid_move(gameState.turnIndex, 13, numJokers)) {
-                possible_plays.push({ rank: 13, count: numJokers, jokers_used: numJokers, is_start: is_start_of_round });
+                possible_plays.push({ rank: 13, count: numJokers, jokersUsed: numJokers, is_start: is_start_of_round });
             }
 
             if (possible_plays.length === 0) {
                 best_play = "pass";
             } else {
                 if (player.style === 'aggressive') {
-                    possible_plays.sort((a, b) => (a.jokers_used - b.jokers_used) || (b.is_start ? b.count - a.count : a.rank - b.rank));
+                    possible_plays.sort((a, b) => (a.jokersUsed - b.jokersUsed) || (b.is_start ? b.count - a.count : a.rank - b.rank));
                 } else if (player.style === 'defensive') {
-                    possible_plays.sort((a, b) => (a.jokers_used * 10 - b.jokers_used * 10) || (b.rank - a.rank));
+                    possible_plays.sort((a, b) => (a.jokersUsed * 10 - b.jokersUsed * 10) || (b.rank - a.rank));
                 } else { // balanced
-                    possible_plays.sort((a, b) => (a.jokers_used - b.jokers_used) || (b.rank - a.rank));
+                    possible_plays.sort((a, b) => (a.jokersUsed - b.jokersUsed) || (b.rank - a.rank));
                 }
                 best_play = possible_plays[0];
             }
         }
         
+        // --- 핵심 버그 수정: AI가 조커만 단독으로 내는 경우, 등급을 13으로 강제 ---
+        if (best_play !== "pass" && best_play.jokersUsed === best_play.count) {
+            best_play.rank = 13;
+        }
+        // --- 수정 종료 ---
+
         if (best_play === "pass") {
             gameState.player_pass(gameState.turnIndex);
         } else {
@@ -429,6 +440,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateUI();
         processNextTurn();
     }
+
     
     // =========================================
     // 이벤트 리스너
