@@ -51,17 +51,32 @@ class MCTS_Node {
         }
     }
 }
-
 class MCTS_AI {
     /**
      * MCTS 알고리즘을 실행하여 최선의 수를 찾습니다.
      * @param {number} iterations - AI가 생각하는 깊이(시뮬레이션 반복 횟수)
      */
-    constructor({ iterations = 1000 }) {
+    constructor({ iterations = 5000 }) {
         this.iterations = iterations;
     }
 
     find_best_move(initialState) {
+        const player = initialState.getCurrentPlayer();
+        const tableCardsCount = initialState.tableCards.cards.length;
+
+        // --- 핵심 최적화 1: 낼 카드 장수보다 내 패가 적으면 즉시 패스 ---
+        if (tableCardsCount > 0 && player.hand.length < tableCardsCount) {
+            console.log(`${player.name} (MCTS) auto-passes: Not enough cards.`);
+            return "pass";
+        }
+
+        // --- 핵심 최적화 2: 상대가 '1' 카드를 냈다면 즉시 패스 ---
+        if (tableCardsCount > 0 && initialState.tableCards.effectiveRank === 1) {
+            console.log(`${player.name} (MCTS) auto-passes: Opponent played rank 1.`);
+            return "pass";
+        }
+
+        // --- 기존 MCTS 로직 ---
         const rootNode = new MCTS_Node(initialState);
         const rootPlayerIndex = initialState.turnIndex;
 
