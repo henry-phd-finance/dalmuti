@@ -198,14 +198,19 @@ document.addEventListener('DOMContentLoaded', () => {
             this.log(`${player.name} passes.`);
             this.passedInRound.add(playerIndex);
             this.consecutivePasses++;
-            const activePlayersWithCards = this.players.filter(p => p.hand.length > 0 && !this.passedInRound.has(this.players.indexOf(p))).length;
-            if (this.consecutivePasses >= activePlayersWithCards) {
+
+            // 더 안정적인 새 라운드 시작 조건:
+            // 카드를 다 낸 사람 + 이번 라운드에 패스한 사람의 수가 (전체 플레이어 - 1)과 같거나 크면 새 라운드 시작
+            const outOfCardsCount = this.players.filter(p => p.hand.length === 0).length;
+            if (this.passedInRound.size + outOfCardsCount >= this.numPlayers - 1) {
                 this.log(`--- New round starts ---`);
                 this.tableCards = { cards: [], effectiveRank: 0 };
                 this.consecutivePasses = 0;
-                this.passedInRound.clear();
+                this.passedInRound.clear(); // 새 라운드가 시작되면 패스 기록을 깨끗하게 비웁니다.
                 this.turnIndex = this.roundLeadIndex;
-                if (this.players[this.turnIndex].hand.length === 0) this.advance_turn();
+                if (this.players[this.turnIndex].hand.length === 0) {
+                    this.advance_turn();
+                }
             } else {
                 this.advance_turn();
             }
@@ -340,18 +345,23 @@ document.addEventListener('DOMContentLoaded', () => {
             updateUI(); return;
         }
         const currentPlayer = gameState.getCurrentPlayer();
-        if (gameState.passedInRound.has(gameState.turnIndex)) {
+
+        // 자동 패스 로직을 AI 플레이어에게만 적용합니다.
+        if (currentPlayer.isAi && gameState.passedInRound.has(gameState.turnIndex)) {
             gameState.log(`${currentPlayer.name} auto-passes.`);
             gameState.player_pass(gameState.turnIndex);
             updateUI();
-            setTimeout(processNextTurn, 500);
+            setTimeout(processNextTurn, 500); // 다음 턴으로 부드럽게 넘어감
             return;
         }
+        
+        // AI의 턴일 경우 (패스하지 않았을 때)
         if (currentPlayer.isAi) {
             gameState.log(`${currentPlayer.name} is thinking...`);
             updateLogsOnly();
             setTimeout(runAiTurn, 1200);
         }
+        // 당신의 턴일 경우, 이 함수는 아무것도 하지 않고 당신의 입력을 기다립니다.
     }
     
     function updateLogsOnly() {
