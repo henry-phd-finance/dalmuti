@@ -132,20 +132,48 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         get_possible_moves() {
-            if (this.passedInRound.has(this.turnIndex)) return ["pass"];
+            if (this.passedInRound.has(this.turnIndex)) {
+                return ["pass"];
+            }
+            
             const moves = [];
             const player = this.players[this.turnIndex];
             const handCounts = player.hand.reduce((acc, card) => { acc[card] = (acc[card] || 0) + 1; return acc; }, {});
             const numJokers = handCounts[13] || 0;
-            for (let rankToPlay = 1; rankToPlay <= 13; rankToPlay++) {
-                const nativeCount = handCounts[rankToPlay] || 0;
-                const maxCount = rankToPlay === 13 ? numJokers : nativeCount + numJokers;
-                for (let countToPlay = 1; countToPlay <= maxCount; countToPlay++) {
-                    if (this.is_valid_move(this.turnIndex, rankToPlay, countToPlay)) {
-                        moves.push({ rank: rankToPlay, count: countToPlay });
+
+            // --- 핵심 수정: AI의 가능한 수 탐색 로직 재구성 ---
+            // 1. 조커 없이 내는 경우
+            for (const r in handCounts) {
+                const rank = parseInt(r);
+                if (rank === 13) continue;
+                const count = handCounts[rank];
+                if (this.is_valid_move(this.turnIndex, rank, count)) {
+                    moves.push({ rank, count });
+                }
+            }
+            // 2. 다른 카드와 조커를 '섞어서' 내는 경우
+            if (numJokers > 0) {
+                for (const r in handCounts) {
+                    const rank = parseInt(r);
+                    if (rank === 13) continue;
+                    const nativeCount = handCounts[rank];
+                    for (let j = 1; j <= numJokers; j++) {
+                        if (this.is_valid_move(this.turnIndex, rank, nativeCount + j)) {
+                            moves.push({ rank, count: nativeCount + j });
+                        }
                     }
                 }
             }
+            // 3. 조커'만' 단독으로 내는 경우 (rank를 13으로 명시)
+            if (numJokers > 0) {
+                for (let c = 1; c <= numJokers; c++) {
+                    if (this.is_valid_move(this.turnIndex, 13, c)) {
+                        moves.push({ rank: 13, count: c });
+                    }
+                }
+            }
+            // --- 수정 종료 ---
+            
             moves.push("pass");
             return moves;
         }
@@ -186,8 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             this.consecutivePasses = 0;
             this.roundLeadIndex = playerIndex;
-            // --- 핵심 수정: 카드를 내면 패스 기록을 초기화하여 모두가 다시 플레이할 수 있게 합니다. ---
-            this.passedInRound.clear();
+            // --- 핵심 수정: 카드를 내도 패스 기록은 유지됩니다. 새 라운드가 시작될 때만 초기화됩니다. ---
 
             if (player.hand.length === 0) {
                 this.gameOver = true;
@@ -209,8 +236,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // 더 안정적인 새 라운드 시작 조건:
             // 카드를 가진 플레이어 중 패스하지 않은 사람이 1명 이하일 때 새 라운드를 시작합니다.
-            const activePlayersWithCards = this.players.filter(p => p.hand.length > 0).length;
-            if (activePlayersWithCards - this.passedInRound.size <= 1) {
+            const activePlayersWithCards = this.players.filter(p => p.hand.length > 0);
+            const unpassedPlayerCount = activePlayersWithCards.filter(p => !this.passedInRound.has(this.players.indexOf(p))).length;
+
+            if (unpassedPlayerCount <= 1 && activePlayersWithCards.length > 1) {
                 this.log(`--- New round starts ---`);
                 this.tableCards = { cards: [], effectiveRank: 0 };
                 this.consecutivePasses = 0;
@@ -340,7 +369,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const myPlayerIndex = myPlayer ? gameState.players.indexOf(myPlayer) : -1;
         const isMyActualTurn = myPlayer && gameState.turnIndex === myPlayerIndex;
         const hasPassedThisRound = myPlayer && gameState.passedInRound.has(myPlayerIndex);
-
+      
         submitBtn.disabled = !isMyActualTurn || hasPassedThisRound;
         passBtn.disabled = !isMyActualTurn;
     }
@@ -356,10 +385,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const currentPlayer = gameState.getCurrentPlayer();
         
-        // 현재 플레이어가 이미 패스한 경우, 자동으로 턴을 넘깁니다.
-        if (gameState.passedInRound.has(gameState.turnIndex)) {
+        // --- 핵심 수정: 자동 패스 로직을 AI 플레이어에게만 적용합니다. ---
+        if (currentPlayer.isAi && gameState.passedInRound.has(gameState.turnIndex)) {
             gameState.log(`${currentPlayer.name} auto-passes.`);
-            gameState.player_pass(gameState.turnIndex); // 패스 규칙은 pass 함수에 위임
+            gameState.player_pass(gameState.turnIndex);
             updateUI();
             setTimeout(processNextTurn, 500); // 다음 턴으로 부드럽게 넘어감
             return;
@@ -378,7 +407,7 @@ document.addEventListener('DOMContentLoaded', () => {
         logContent.innerHTML = gameState.gameLog.slice().reverse().map(line => `<p>${line}</p>`).join('');
     }
     
-        function runAiTurn() {
+    function runAiTurn() {
         if (!gameState || gameState.gameOver || !gameState.getCurrentPlayer().isAi) return;
         
         gameState.gameLog.pop(); // "thinking..." 로그 제거
@@ -389,28 +418,46 @@ document.addEventListener('DOMContentLoaded', () => {
         let best_play;
 
         if (style === 'mcts') {
-            const mcts = new MCTS_AI({ iterations: 1000 });
+            const mcts = new MCTS_AI({ iterations: 5000 });
             best_play = mcts.find_best_move(gameState);
         } else {
             const handCounts = player.hand.reduce((acc, card) => { acc[card] = (acc[card] || 0) + 1; return acc; }, {});
             const numJokers = handCounts[13] || 0;
             const is_start_of_round = gameState.tableCards.cards.length === 0;
-            let possible_plays = [];
-            
-            for (let r in handCounts) {
+            const possible_plays = [];
+
+            // --- 핵심 수정: AI의 가능한 수 탐색 로직 재구성 ---
+            // 1. 조커 없이 내는 경우
+            for (const r in handCounts) {
                 const rank = parseInt(r);
                 if (rank === 13) continue;
                 const count = handCounts[rank];
-                if (gameState.is_valid_move(gameState.turnIndex, rank, count)) possible_plays.push({ rank, count, jokersUsed: 0, is_start: is_start_of_round });
-                if (numJokers > 0) {
+                if (gameState.is_valid_move(playerIndex, rank, count)) {
+                    possible_plays.push({ rank, count, jokersUsed: 0, is_start: is_start_of_round });
+                }
+            }
+            // 2. 다른 카드와 조커를 '섞어서' 내는 경우
+            if (numJokers > 0) {
+                for (const r in handCounts) {
+                    const rank = parseInt(r);
+                    if (rank === 13) continue;
+                    const nativeCount = handCounts[rank];
                     for (let j = 1; j <= numJokers; j++) {
-                        if (gameState.is_valid_move(gameState.turnIndex, rank, count + j)) possible_plays.push({ rank, count: count + j, jokersUsed: j, is_start: is_start_of_round });
+                        if (gameState.is_valid_move(playerIndex, rank, nativeCount + j)) {
+                            possible_plays.push({ rank, count: nativeCount + j, jokersUsed: j, is_start: is_start_of_round });
+                        }
                     }
                 }
             }
-            if (numJokers > 0 && gameState.is_valid_move(gameState.turnIndex, 13, numJokers)) {
-                possible_plays.push({ rank: 13, count: numJokers, jokersUsed: numJokers, is_start: is_start_of_round });
+            // 3. 조커'만' 단독으로 내는 경우 (rank를 13으로 명시)
+            if (numJokers > 0) {
+                for (let c = 1; c <= numJokers; c++) {
+                    if (gameState.is_valid_move(playerIndex, 13, c)) {
+                        possible_plays.push({ rank: 13, count: c, jokersUsed: c, is_start: is_start_of_round });
+                    }
+                }
             }
+            // --- 수정 종료 ---
 
             if (possible_plays.length === 0) {
                 best_play = "pass";
@@ -426,12 +473,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        // --- 핵심 버그 수정: AI가 조커만 단독으로 내는 경우, 등급을 13으로 강제 ---
-        if (best_play !== "pass" && best_play.jokersUsed === best_play.count) {
-            best_play.rank = 13;
-        }
-        // --- 수정 종료 ---
-
         if (best_play === "pass") {
             gameState.player_pass(gameState.turnIndex);
         } else {

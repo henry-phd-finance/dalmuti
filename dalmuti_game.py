@@ -76,24 +76,41 @@ class GameState:
     def get_current_player(self):
         return self.players[self.turn_index]
 
-    def get_possible_moves(self):
+        def get_possible_moves(self):
+        """ MCTS를 위해 현재 턴의 플레이어가 할 수 있는 모든 행동을 반환합니다. """
         if self.turn_index in self.passed_in_round:
             return ["pass"]
-        
+            
         moves = []
-        player = self.get_current_player()
+        player = self.players[self.turn_index]
         hand_counts = Counter(player.hand)
         num_jokers = hand_counts.get(13, 0)
         
-        for r_to_play in range(1, 14):
-            max_count = hand_counts.get(r_to_play, 0) if r_to_play != 13 else num_jokers
-            if r_to_play != 13: max_count += num_jokers
-            
-            for c_to_play in range(1, max_count + 1):
-                if self.is_valid_move(self.turn_index, r_to_play, c_to_play):
-                    moves.append({'rank': r_to_play, 'count': c_to_play})
+        # --- 핵심 수정: AI의 가능한 수 탐색 로직 재구성 ---
+        # 1. 조커 없이 내는 경우
+        for r, c in hand_counts.items():
+            if r == 13: continue
+            if self.is_valid_move(self.turn_index, r, c):
+                moves.append({'rank': r, 'count': c})
+
+        # 2. 다른 카드와 조커를 '섞어서' 내는 경우
+        if num_jokers > 0:
+            for r, c in hand_counts.items():
+                if r == 13: continue
+                for j in range(1, num_jokers + 1):
+                    if self.is_valid_move(self.turn_index, r, c + j):
+                        moves.append({'rank': r, 'count': c + j})
+
+        # 3. 조커'만' 단독으로 내는 경우 (rank를 13으로 명시)
+        if num_jokers > 0:
+            for c in range(1, num_jokers + 1):
+                if self.is_valid_move(self.turn_index, 13, c):
+                    moves.append({'rank': 13, 'count': c})
+        # --- 수정 종료 ---
+        
         moves.append("pass")
         return moves
+
 
     def make_move(self, move):
         new_state = copy.deepcopy(self)
