@@ -56,7 +56,7 @@ class MCTS_AI {
      * MCTS 알고리즘을 실행하여 최선의 수를 찾습니다.
      * @param {number} iterations - AI가 생각하는 깊이(시뮬레이션 반복 횟수)
      */
-    constructor({ iterations = 5000 }) {
+    constructor({ iterations = 1000 }) {
         this.iterations = iterations;
     }
 
