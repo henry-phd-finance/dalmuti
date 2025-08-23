@@ -53,8 +53,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 게임 상태 변수 ---
     let playerCount = 4;
-    const aiStyles = ['mcts', 'balanced', 'aggressive', 'defensive'];
-    let selectedAiStyles = [0, 0, 0, 0, 0, 1, 2];
+    const aiStyles = ['mcts_pro', 'mcts', 'balanced', 'aggressive', 'defensive'];
+    let selectedAiStyles = [0, 0, 0, 0, 0, 0, 0];
     let gameState = null;
     let selectedCards = { indices: [], base_rank: null };
 
@@ -418,9 +418,16 @@ document.addEventListener('DOMContentLoaded', () => {
         let best_play;
 
         if (style === 'mcts') {
-            const mcts = new MCTS_AI({ iterations: 5000 });
+            const mcts = new MCTS_AI({ iterations: 1000 });
             best_play = mcts.find_best_move(gameState);
-        } else {
+        }
+        // --- 핵심 수정: 'mcts_pro' 스타일일 때 새로운 AI를 호출 ---
+        else if (style === 'mcts_pro') {
+            console.log(`${player.name} (MCTS-Pro) is thinking...`);
+            const mcts_pro = new MCTS_Pro_AI({ iterations: 1000 }); // Pro 버전 호출
+            best_play = mcts_pro.find_best_move(gameState);
+        }
+        else {
             const handCounts = player.hand.reduce((acc, card) => { acc[card] = (acc[card] || 0) + 1; return acc; }, {});
             const numJokers = handCounts[13] || 0;
             const is_start_of_round = gameState.tableCards.cards.length === 0;
