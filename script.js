@@ -27,7 +27,7 @@
 // #play-again-btn
 // =======================================================================
 
-const JOKER_DEBUG_MODE = true;
+const JOKER_DEBUG_MODE = false;
 document.addEventListener('DOMContentLoaded', () => {
     // --- 화면 요소 ---
     const setupScreen = document.getElementById('setup-screen');
@@ -181,7 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
             this.log(`First turn: ${this.players[this.turnIndex].name}`);
         }
 
-        
+
         log(message) { this.gameLog.push(message); }
         getCurrentPlayer() { return this.players[this.turnIndex]; }
 
