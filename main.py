@@ -70,51 +70,80 @@ class CardWidget(Button):
         self.text_size = self.size
 
 class PlayerHandWidget(RelativeLayout):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.card_widgets = []
+
     def update_hand(self, hand_ranks, selected_indices):
+        # 위젯의 크기가 아직 계산되지 않았다면, 다음 프레임에 다시 시도
+        if self.width == 100 and self.height == 100: # Kivy의 기본 초기 크기
+            Clock.schedule_once(lambda dt: self.update_hand(hand_ranks, selected_indices))
+            return
+
         self.clear_widgets()
+        self.card_widgets = []
         total_cards = len(hand_ranks)
         if total_cards == 0: return
 
-        ROW_THRESHOLD = 15 # 이 숫자보다 카드가 많으면 두 줄로 표시
+        ROW_THRESHOLD = 15 # 두 줄로 나뉘는 기준 카드 수
 
         def create_card_widget(rank, index, x, y, width, height):
             is_selected = index in selected_indices
-            y_offset = 20 if is_selected else 0
+            y_offset = 20 if is_selected else 0 # 선택 시 y축으로 20픽셀 이동
             
-            # size_hint를 None으로 설정하여 절대 크기를 사용
             card = CardWidget(rank=rank, size=(width, height), pos=(x, y + y_offset), size_hint=(None, None))
             card.bind(on_press=partial(App.get_running_app().on_card_press, index))
+            self.card_widgets.append(card)
             return card
 
-        # 한 줄로 표시
         if total_cards <= ROW_THRESHOLD:
+            # --- 한 줄 로직 ---
             card_width = self.width * 0.12
             card_height = self.height * 0.8
-            total_render_width = self.width * 1.2
-            overlap_px = (card_width * total_cards - total_render_width) / (total_cards - 1) if total_cards > 1 else 0
-            step_x = card_width - overlap_px if overlap_px > 0 else card_width
+            
+            # --- 핵심 수정: 겹치는 정도를 동적으로 더 여유있게 계산 ---
+            min_visible_part = card_width * 0.4 # 카드의 최소 40%는 보이도록 설정 (기존보다 넓게)
+            total_required_width = card_width + (total_cards - 1) * min_visible_part
+            
+            step_x = min_visible_part
+            # 만약 계산된 너비가 실제 영역보다 작아서 공간이 남는다면, 간격을 더 넓혀줌
+            if total_required_width < self.width * 0.95 and total_cards > 1:
+                step_x = (self.width * 0.95 - card_width) / (total_cards - 1)
+            # --- 수정 종료 ---
+
             start_x = (self.width - (card_width + step_x * (total_cards - 1))) / 2
             
             for i, rank in enumerate(hand_ranks):
-                self.add_widget(create_card_widget(rank, i, start_x + i * step_x, self.height * 0.1, card_width, card_height))
-        # 두 줄로 표시
+                widget = create_card_widget(rank, i, start_x + i * step_x, self.height * 0.1, card_width, card_height)
+                self.add_widget(widget)
         else:
+            # --- 두 줄 로직 ---
             top_row_count = total_cards // 2
             bottom_row_count = total_cards - top_row_count
             
-            def process_row(count, ranks, start_idx, y_pos, height_multiplier):
+            def process_row(count, ranks, start_idx, y_pos):
                 card_width = self.width * 0.10
-                card_height = self.height * height_multiplier
-                total_render_width = self.width * 1.00
-                overlap_px = (card_width * count - total_render_width) / (count - 1) if count > 1 else 0
-                step_x = card_width - overlap_px if overlap_px > 0 else card_width
+                card_height = self.height * 0.55
+                
+                min_visible_part = card_width * 0.4
+                total_required_width = card_width + (count - 1) * min_visible_part
+                step_x = min_visible_part
+                if total_required_width < self.width * 0.95 and count > 1:
+                    step_x = (self.width * 0.95 - card_width) / (count - 1)
+
                 start_x = (self.width - (card_width + step_x * (count - 1))) / 2
                 for i in range(count):
-                    self.add_widget(create_card_widget(ranks[i], start_idx + i, start_x + i * step_x, y_pos, card_width, card_height))
+                    original_index = start_idx + i
+                    rank = ranks[i]
+                    widget = create_card_widget(rank, original_index, start_x + i * step_x, y_pos, card_width, card_height)
+                    yield widget
 
-            # 아래 줄을 먼저 추가하여 렌더링 순서상 위로 오게 함 (클릭 우선순위)
-            process_row(bottom_row_count, hand_ranks[top_row_count:], top_row_count, self.height * 0.05, 0.55)
-            process_row(top_row_count, hand_ranks[:top_row_count], 0, self.height * 0.4, 0.55)
+            # Kivy는 나중에 추가된 위젯을 위에 그림 (아랫줄이 윗줄을 덮도록)
+            for widget in process_row(top_row_count, hand_ranks[:top_row_count], 0, self.height * 0.4):
+                self.add_widget(widget)
+            for widget in process_row(bottom_row_count, hand_ranks[top_row_count:], top_row_count, self.height * 0.05):
+                self.add_widget(widget)
+
 
 
 class TableWidget(RelativeLayout):
