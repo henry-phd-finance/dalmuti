@@ -55,6 +55,18 @@ body, html {
 .ai-style-selector { margin-bottom: 10px; }
 #player-count-display, .ai-style-display { font-size: 1.5em; }
 
+/* --- 핵심 수정: AI 스타일 목록이 길어지면 스크롤되도록 변경 --- */
+#ai-styles-container {
+    flex-grow: 1; /* 남은 공간을 최대한 차지 */
+    overflow-y: auto; /* 내용이 넘치면 세로 스크롤바 자동 생성 */
+    width: 90%;
+    max-width: 400px;
+    padding: 10px;
+    border: 1px solid #444;
+    border-radius: 8px;
+}
+
+
 /* 메인 게임 화면 레이아웃 */
 #main-game-screen {
     justify-content: space-between;
