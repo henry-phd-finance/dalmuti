@@ -98,11 +98,11 @@ class PlayerHandWidget(RelativeLayout):
 
         if total_cards <= ROW_THRESHOLD:
             # --- 한 줄 로직 ---
-            card_width = self.width * 0.12
+            card_width = self.width * 0.2
             card_height = self.height * 0.8
             
             # --- 핵심 수정: 겹치는 정도를 동적으로 더 여유있게 계산 ---
-            min_visible_part = card_width * 0.4 # 카드의 최소 40%는 보이도록 설정 (기존보다 넓게)
+            min_visible_part = card_width * 0.5 # 카드의 최소 40%는 보이도록 설정 (기존보다 넓게)
             total_required_width = card_width + (total_cards - 1) * min_visible_part
             
             step_x = min_visible_part
@@ -125,7 +125,7 @@ class PlayerHandWidget(RelativeLayout):
                 card_width = self.width * 0.10
                 card_height = self.height * 0.55
                 
-                min_visible_part = card_width * 0.5
+                min_visible_part = card_width * 0.7
                 total_required_width = card_width + (count - 1) * min_visible_part
                 step_x = min_visible_part
                 # if total_required_width < self.width * 1.2 and count > 1:
