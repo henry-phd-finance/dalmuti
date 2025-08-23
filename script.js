@@ -54,8 +54,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 게임 상태 변수 ---
     let playerCount = 4;
-    const aiStyles = ['mcts', 'balanced', 'aggressive', 'defensive'];
-    let selectedAiStyles = [0, 0, 0, 0, 0, 0, 0];
+    const aiStyles = ['mcts_pro', 'mcts', 'balanced', 'aggressive', 'defensive'];
+    let selectedAiStyles = [0, 1, 0, 0, 0, 0, 0];
     let gameState = null;
     let selectedCards = { indices: [], base_rank: null };
 
@@ -99,20 +99,6 @@ document.addEventListener('DOMContentLoaded', () => {
             this._setupDeckAndDeal();
         }
 
-        // _setupDeckAndDeal() {
-        //     let deck = [];
-        //     for (let i = 1; i <= 12; i++) { for (let j = 0; j < i; j++) deck.push(i); }
-        //     deck.push(13, 13);
-        //     for (let i = deck.length - 1; i > 0; i--) {
-        //         const j = Math.floor(Math.random() * (i + 1));
-        //         [deck[i], deck[j]] = [deck[j], deck[i]];
-        //     }
-        //     deck.forEach((card, i) => this.players[i % this.numPlayers].hand.push(card));
-        //     this.players.forEach(p => p.sortHand());
-        //     this.turnIndex = this.roundLeadIndex = Math.floor(Math.random() * this.numPlayers);
-        //     this.log("--- New Game Started ---");
-        //     this.log(`First turn: ${this.players[this.turnIndex].name}`);
-        // }
         _setupDeckAndDeal() {
             let deck = [];
             for (let i = 1; i <= 12; i++) { for (let j = 0; j < i; j++) deck.push(i); }
@@ -185,10 +171,13 @@ document.addEventListener('DOMContentLoaded', () => {
         log(message) { this.gameLog.push(message); }
         getCurrentPlayer() { return this.players[this.turnIndex]; }
 
+        /**
+         * MCTS를 위한 새로운 함수 1: 현재 상태의 완벽한 복사본을 만듭니다.
+         */
         clone() {
             const clonedState = new GameState([], true); // 비어있는 객체 생성
             clonedState.numPlayers = this.numPlayers;
-            clonedState.players = JSON.parse(JSON.stringify(this.players));
+            clonedState.players = JSON.parse(JSON.stringify(this.players)); // 손패까지 완벽 복사
             clonedState.turnIndex = this.turnIndex;
             clonedState.roundLeadIndex = this.roundLeadIndex;
             clonedState.tableCards = JSON.parse(JSON.stringify(this.tableCards));
@@ -196,21 +185,20 @@ document.addEventListener('DOMContentLoaded', () => {
             clonedState.consecutivePasses = this.consecutivePasses;
             clonedState.gameOver = this.gameOver;
             clonedState.winnerIndex = this.winnerIndex;
-            clonedState.gameLog = [];
+            clonedState.gameLog = []; // 로그는 시뮬레이션에 필요 없으므로 비워둠
             return clonedState;
         }
 
+        /**
+         * MCTS를 위한 새로운 함수 2: 현재 턴의 플레이어가 할 수 있는 모든 행동을 반환합니다.
+         */
         get_possible_moves() {
-            if (this.passedInRound.has(this.turnIndex)) {
-                return ["pass"];
-            }
-            
+            if (this.passedInRound.has(this.turnIndex)) return ["pass"];
             const moves = [];
             const player = this.players[this.turnIndex];
             const handCounts = player.hand.reduce((acc, card) => { acc[card] = (acc[card] || 0) + 1; return acc; }, {});
             const numJokers = handCounts[13] || 0;
-
-            // --- 핵심 수정: AI의 가능한 수 탐색 로직 재구성 ---
+            
             // 1. 조커 없이 내는 경우
             for (const r in handCounts) {
                 const rank = parseInt(r);
@@ -241,20 +229,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             }
-            // --- 수정 종료 ---
             
             moves.push("pass");
             return moves;
         }
 
+        /**
+         * MCTS를 위한 새로운 함수 3: 특정 행동을 실행하고, 그 결과로 나타나는 '다음 상태'를 반환합니다.
+         */
         make_move(move) {
-            const newState = this.clone();
+            const newState = this.clone(); // 현재 상태를 복사
             if (move === "pass") {
                 newState.player_pass(newState.turnIndex);
             } else {
                 newState.play_cards(newState.turnIndex, move.rank, move.count);
             }
-            return newState;
+            return newState; // 변경이 적용된 새로운 상태를 반환
         }
 
         is_valid_move(playerIndex, rank, count) {
@@ -269,47 +259,20 @@ document.addEventListener('DOMContentLoaded', () => {
             return count === this.tableCards.cards.length && rank < this.tableCards.effectiveRank;
         }
 
-        // play_cards(playerIndex, rank, count) {
-        //     const player = this.players[playerIndex];
-        //     const handCounts = player.hand.reduce((acc, card) => { acc[card] = (acc[card] || 0) + 1; return acc; }, {});
-        //     const nativeAvailable = handCounts[rank] || 0;
-        //     const jokersToUse = Math.max(0, count - nativeAvailable);
-        //     const nativeToUse = count - jokersToUse;
-        //     for (let i = 0; i < nativeToUse; i++) player.hand.splice(player.hand.indexOf(rank), 1);
-        //     for (let i = 0; i < jokersToUse; i++) player.hand.splice(player.hand.indexOf(13), 1);
-            
-        //     this.tableCards = { cards: Array(nativeToUse).fill(rank).concat(Array(jokersToUse).fill(13)), effectiveRank: rank };
-        //     this.log(`${player.name} plays ${count}x card ${rank} (eff).`);
-            
-        //     this.consecutivePasses = 0;
-        //     this.roundLeadIndex = playerIndex;
-        //     // --- 핵심 수정: 카드를 내도 패스 기록은 유지됩니다. 새 라운드가 시작될 때만 초기화됩니다. ---
-
-        //     if (player.hand.length === 0) {
-        //         this.gameOver = true;
-        //         this.winnerIndex = playerIndex;
-        //         this.log(`🎉 ${player.name} wins the game! 🎉`);
-        //         return;
-        //     }
-        //     this.advance_turn();
-        // }
         play_cards(playerIndex, rank, count, explicitRemovals = null) {
             const player = this.players[playerIndex];
             let nativeToUse, jokersToUse;
 
             if (explicitRemovals) {
-                // 사람 플레이어의 경우: 선택한 카드 정보를 그대로 사용
                 nativeToUse = explicitRemovals.native;
                 jokersToUse = explicitRemovals.jokers;
             } else {
-                // AI의 경우: 기존 방식대로 필요한 카드 계산
                 const handCounts = player.hand.reduce((acc, card) => { acc[card] = (acc[card] || 0) + 1; return acc; }, {});
                 const nativeAvailable = handCounts[rank] || 0;
                 jokersToUse = Math.max(0, count - nativeAvailable);
                 nativeToUse = count - jokersToUse;
             }
 
-            // 손패에서 카드 제거
             for (let i = 0; i < nativeToUse; i++) player.hand.splice(player.hand.indexOf(rank), 1);
             for (let i = 0; i < jokersToUse; i++) player.hand.splice(player.hand.indexOf(13), 1);
             
@@ -321,7 +284,6 @@ document.addEventListener('DOMContentLoaded', () => {
             
             this.consecutivePasses = 0;
             this.roundLeadIndex = playerIndex;
-            // 카드를 내도 패스 기록은 유지됩니다. 새 라운드가 시작될 때만 초기화됩니다.
 
             if (player.hand.length === 0) {
                 this.gameOver = true;
@@ -334,15 +296,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         player_pass(playerIndex) {
             const player = this.players[playerIndex];
-            // "auto-passes" 로그는 processNextTurn에서 처리하므로, 여기서는 일반 패스만 기록합니다.
             if (!this.passedInRound.has(playerIndex)) {
                  this.log(`${player.name} passes.`);
             }
             this.passedInRound.add(playerIndex);
             this.consecutivePasses++;
 
-            // 더 안정적인 새 라운드 시작 조건:
-            // 카드를 가진 플레이어 중 패스하지 않은 사람이 1명 이하일 때 새 라운드를 시작합니다.
             const activePlayersWithCards = this.players.filter(p => p.hand.length > 0);
             const unpassedPlayerCount = activePlayersWithCards.filter(p => !this.passedInRound.has(this.players.indexOf(p))).length;
 
@@ -554,7 +513,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- 핵심 수정: 'mcts_pro' 스타일일 때 새로운 AI를 호출 ---
         else if (style === 'mcts_pro') {
             console.log(`${player.name} (MCTS-Pro) is thinking...`);
-            const mcts_pro = new MCTS_PRO_AI({ iterations: 1000 }); // Pro 버전 호출
+            const mcts_pro = new MCTS_Pro_AI({ iterations: 1000 }); // Pro 버전 호출
             best_play = mcts_pro.find_best_move(gameState);
         }
         else {
