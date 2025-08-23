@@ -96,7 +96,7 @@ class PlayerHandWidget(RelativeLayout):
             return card
 
         if total_cards <= ROW_THRESHOLD:
-            card_width = self.width * 0.12
+            card_width = self.width * 0.08
             card_height = self.height * 0.8
             render_area = self.width * 0.95
             
@@ -110,7 +110,7 @@ class PlayerHandWidget(RelativeLayout):
             bottom_row_count = total_cards - top_row_count
             
             def process_row(count, ranks, start_idx, y_pos):
-                card_width = self.width * 0.12
+                card_width = self.width * 0.08
                 card_height = self.height * 0.55
                 render_area = self.width # 두 줄일 땐 공간을 100% 사용
                 
