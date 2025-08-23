@@ -51,7 +51,7 @@ class CardWidget(Button):
         
         self.text = "J" if rank == 13 else str(rank)
         self.font_size = '10sp'
-        self.bold = True
+        self.bold = False
         self.color = (1, 1, 1, 1)
         self.halign = 'left'
         self.valign = 'top'
@@ -110,7 +110,7 @@ class PlayerHandWidget(RelativeLayout):
             bottom_row_count = total_cards - top_row_count
             
             def process_row(count, ranks, start_idx, y_pos):
-                card_width = self.width * 0.10
+                card_width = self.width * 0.12
                 card_height = self.height * 0.55
                 render_area = self.width # 두 줄일 땐 공간을 100% 사용
                 
@@ -266,7 +266,7 @@ class DalmutiApp(App):
         # --- 수정 종료 ---
 
         self.table_widget = TableWidget(size_hint_y=0.4)
-        self.player_hand_widget = PlayerHandWidget(size_hint_y=0.3)
+        self.player_hand_widget = PlayerHandWidget(size_hint_y=0.3, size_hint_x=0.15)
         action_bar = BoxLayout(size_hint_y=None, height='50dp', spacing=10)
         submit_button = Button(text='Submit'); submit_button.bind(on_press=self.on_submit)
         pass_button = Button(text='Pass'); pass_button.bind(on_press=self.on_pass)
