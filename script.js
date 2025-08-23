@@ -27,6 +27,7 @@
 // #play-again-btn
 // =======================================================================
 
+const JOKER_DEBUG_MODE = true;
 document.addEventListener('DOMContentLoaded', () => {
     // --- 화면 요소 ---
     const setupScreen = document.getElementById('setup-screen');
@@ -98,20 +99,88 @@ document.addEventListener('DOMContentLoaded', () => {
             this._setupDeckAndDeal();
         }
 
+        // _setupDeckAndDeal() {
+        //     let deck = [];
+        //     for (let i = 1; i <= 12; i++) { for (let j = 0; j < i; j++) deck.push(i); }
+        //     deck.push(13, 13);
+        //     for (let i = deck.length - 1; i > 0; i--) {
+        //         const j = Math.floor(Math.random() * (i + 1));
+        //         [deck[i], deck[j]] = [deck[j], deck[i]];
+        //     }
+        //     deck.forEach((card, i) => this.players[i % this.numPlayers].hand.push(card));
+        //     this.players.forEach(p => p.sortHand());
+        //     this.turnIndex = this.roundLeadIndex = Math.floor(Math.random() * this.numPlayers);
+        //     this.log("--- New Game Started ---");
+        //     this.log(`First turn: ${this.players[this.turnIndex].name}`);
+        // }
         _setupDeckAndDeal() {
             let deck = [];
             for (let i = 1; i <= 12; i++) { for (let j = 0; j < i; j++) deck.push(i); }
             deck.push(13, 13);
+
+            // 1. 덱을 먼저 셔플합니다.
             for (let i = deck.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [deck[i], deck[j]] = [deck[j], deck[i]];
             }
-            deck.forEach((card, i) => this.players[i % this.numPlayers].hand.push(card));
+
+            // 2. 모든 카드를 플레이어에게 공평하게 나눠줍니다.
+            deck.forEach((card, i) => {
+                this.players[i % this.numPlayers].hand.push(card);
+            });
+
+            // --- 핵심 수정: 카드 분배 *후에* 교환(Swap) 로직 실행 ---
+            const humanPlayer = this.players.find(p => !p.isAi);
+            const humanPlayerIndex = humanPlayer ? this.players.indexOf(humanPlayer) : -1;
+
+            if (JOKER_DEBUG_MODE && humanPlayerIndex !== -1) {
+                this.log(">>> JOKER DEBUG MODE: Swapping cards...");
+                
+                // 3. 다른 AI 플레이어들의 손에서 조커를 찾습니다.
+                for (let aiIndex = 0; aiIndex < this.numPlayers; aiIndex++) {
+                    if (aiIndex === humanPlayerIndex) continue;
+                    
+                    const aiPlayer = this.players[aiIndex];
+                    let jokerIndexInAI = aiPlayer.hand.indexOf(13);
+                    
+                    // AI가 조커를 가지고 있다면 교환을 시도합니다.
+                    while (jokerIndexInAI !== -1) {
+                        // 당신의 손에서 조커가 아닌 카드를 찾습니다.
+                        let cardToSwapIndex = -1;
+                        for (let i = 0; i < humanPlayer.hand.length; i++) {
+                            if (humanPlayer.hand[i] !== 13) {
+                                cardToSwapIndex = i;
+                                break;
+                            }
+                        }
+                        
+                        // 교환할 카드가 있다면 교환합니다.
+                        if (cardToSwapIndex !== -1) {
+                            const cardToGiveToAI = humanPlayer.hand[cardToSwapIndex];
+                            
+                            // AI의 조커를 당신에게 주고, 당신의 카드를 AI에게 줍니다.
+                            humanPlayer.hand[cardToSwapIndex] = 13;
+                            aiPlayer.hand[jokerIndexInAI] = cardToGiveToAI;
+                        } else {
+                            // 당신이 조커만 들고 있어서 교환할 카드가 없는 경우는 드물지만,
+                            // 이 경우 교환을 중단합니다.
+                            break; 
+                        }
+                        
+                        // AI의 손에 또 다른 조커가 있는지 확인합니다.
+                        jokerIndexInAI = aiPlayer.hand.indexOf(13, jokerIndexInAI + 1);
+                    }
+                }
+            }
+            // --- 수정 종료 ---
+
+            // 4. 모든 플레이어의 손패를 정렬하고 턴을 정합니다.
             this.players.forEach(p => p.sortHand());
             this.turnIndex = this.roundLeadIndex = Math.floor(Math.random() * this.numPlayers);
             this.log("--- New Game Started ---");
             this.log(`First turn: ${this.players[this.turnIndex].name}`);
         }
+
         
         log(message) { this.gameLog.push(message); }
         getCurrentPlayer() { return this.players[this.turnIndex]; }
@@ -200,21 +269,59 @@ document.addEventListener('DOMContentLoaded', () => {
             return count === this.tableCards.cards.length && rank < this.tableCards.effectiveRank;
         }
 
-        play_cards(playerIndex, rank, count) {
+        // play_cards(playerIndex, rank, count) {
+        //     const player = this.players[playerIndex];
+        //     const handCounts = player.hand.reduce((acc, card) => { acc[card] = (acc[card] || 0) + 1; return acc; }, {});
+        //     const nativeAvailable = handCounts[rank] || 0;
+        //     const jokersToUse = Math.max(0, count - nativeAvailable);
+        //     const nativeToUse = count - jokersToUse;
+        //     for (let i = 0; i < nativeToUse; i++) player.hand.splice(player.hand.indexOf(rank), 1);
+        //     for (let i = 0; i < jokersToUse; i++) player.hand.splice(player.hand.indexOf(13), 1);
+            
+        //     this.tableCards = { cards: Array(nativeToUse).fill(rank).concat(Array(jokersToUse).fill(13)), effectiveRank: rank };
+        //     this.log(`${player.name} plays ${count}x card ${rank} (eff).`);
+            
+        //     this.consecutivePasses = 0;
+        //     this.roundLeadIndex = playerIndex;
+        //     // --- 핵심 수정: 카드를 내도 패스 기록은 유지됩니다. 새 라운드가 시작될 때만 초기화됩니다. ---
+
+        //     if (player.hand.length === 0) {
+        //         this.gameOver = true;
+        //         this.winnerIndex = playerIndex;
+        //         this.log(`🎉 ${player.name} wins the game! 🎉`);
+        //         return;
+        //     }
+        //     this.advance_turn();
+        // }
+        play_cards(playerIndex, rank, count, explicitRemovals = null) {
             const player = this.players[playerIndex];
-            const handCounts = player.hand.reduce((acc, card) => { acc[card] = (acc[card] || 0) + 1; return acc; }, {});
-            const nativeAvailable = handCounts[rank] || 0;
-            const jokersToUse = Math.max(0, count - nativeAvailable);
-            const nativeToUse = count - jokersToUse;
+            let nativeToUse, jokersToUse;
+
+            if (explicitRemovals) {
+                // 사람 플레이어의 경우: 선택한 카드 정보를 그대로 사용
+                nativeToUse = explicitRemovals.native;
+                jokersToUse = explicitRemovals.jokers;
+            } else {
+                // AI의 경우: 기존 방식대로 필요한 카드 계산
+                const handCounts = player.hand.reduce((acc, card) => { acc[card] = (acc[card] || 0) + 1; return acc; }, {});
+                const nativeAvailable = handCounts[rank] || 0;
+                jokersToUse = Math.max(0, count - nativeAvailable);
+                nativeToUse = count - jokersToUse;
+            }
+
+            // 손패에서 카드 제거
             for (let i = 0; i < nativeToUse; i++) player.hand.splice(player.hand.indexOf(rank), 1);
             for (let i = 0; i < jokersToUse; i++) player.hand.splice(player.hand.indexOf(13), 1);
             
-            this.tableCards = { cards: Array(nativeToUse).fill(rank).concat(Array(jokersToUse).fill(13)), effectiveRank: rank };
+            this.tableCards = {
+                cards: Array(nativeToUse).fill(rank).concat(Array(jokersToUse).fill(13)),
+                effectiveRank: rank
+            };
             this.log(`${player.name} plays ${count}x card ${rank} (eff).`);
             
             this.consecutivePasses = 0;
             this.roundLeadIndex = playerIndex;
-            // --- 핵심 수정: 카드를 내도 패스 기록은 유지됩니다. 새 라운드가 시작될 때만 초기화됩니다. ---
+            // 카드를 내도 패스 기록은 유지됩니다. 새 라운드가 시작될 때만 초기화됩니다.
 
             if (player.hand.length === 0) {
                 this.gameOver = true;
@@ -548,11 +655,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
     submitBtn.addEventListener('click', () => {
         if (selectedCards.indices.length === 0) return;
+        // const playerIndex = gameState.players.findIndex(p => !p.isAi);
+        // const rankToPlay = selectedCards.base_rank;
+        // const countToPlay = selectedCards.indices.length;
+        // if (gameState.is_valid_move(playerIndex, rankToPlay, countToPlay)) {
+        //     gameState.play_cards(playerIndex, rankToPlay, countToPlay);
+        //     selectedCards = { indices: [], base_rank: null };
+        //     updateUI();
+        //     processNextTurn();
+        // } else {
+        //     alert("Invalid move!");
+        // }
         const playerIndex = gameState.players.findIndex(p => !p.isAi);
+        const hand = gameState.players[playerIndex].hand;
+        
         const rankToPlay = selectedCards.base_rank;
         const countToPlay = selectedCards.indices.length;
+        
         if (gameState.is_valid_move(playerIndex, rankToPlay, countToPlay)) {
-            gameState.play_cards(playerIndex, rankToPlay, countToPlay);
+            // --- 핵심 수정: 선택한 카드를 정확히 계산하여 전달 ---
+            const selectedRanks = selectedCards.indices.map(i => hand[i]);
+            const jokersToRemove = selectedRanks.filter(r => r === 13).length;
+            const nativeToRemove = selectedRanks.filter(r => r === rankToPlay).length;
+            
+            gameState.play_cards(playerIndex, rankToPlay, countToPlay, { native: nativeToRemove, jokers: jokersToRemove });
+            // --- 수정 종료 ---
+
             selectedCards = { indices: [], base_rank: null };
             updateUI();
             processNextTurn();
