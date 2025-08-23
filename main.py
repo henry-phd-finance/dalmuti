@@ -249,8 +249,11 @@ class DalmutiApp(App):
 
     def create_main_game_layout(self):
         root = BoxLayout(spacing=10, padding=10)
-        self.log_widget = LogWidget(size_hint_x=0.3)
-        center_layout = BoxLayout(orientation='vertical', size_hint_x=0.4, spacing=10)
+        # 좌우 패널의 너비를 줄이고(0.3 -> 0.2), 중앙 패널의 너비를 늘립니다(0.4 -> 0.6).
+        self.log_widget = LogWidget(size_hint_x=0.2)
+        center_layout = BoxLayout(orientation='vertical', size_hint_x=0.6, spacing=10)
+        self.other_players_widget = OtherPlayersWidget(size_hint_x=0.2) # 0.3
+        # --- 수정 종료 ---
         self.table_widget = TableWidget(size_hint_y=0.4)
         self.player_hand_widget = PlayerHandWidget(size_hint_y=0.3)
         action_bar = BoxLayout(size_hint_y=None, height='50dp', spacing=10)
@@ -262,7 +265,7 @@ class DalmutiApp(App):
         center_layout.add_widget(Label(text="Your Hand", size_hint_y=None, height='30dp'))
         center_layout.add_widget(self.player_hand_widget)
         center_layout.add_widget(action_bar)
-        self.other_players_widget = OtherPlayersWidget(size_hint_x=0.3)
+
         root.add_widget(self.log_widget)
         root.add_widget(center_layout)
         root.add_widget(self.other_players_widget)
