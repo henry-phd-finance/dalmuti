@@ -53,7 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const passBtn = document.getElementById('pass-btn');
 
     // --- 게임 상태 변수 ---
-    let playerCount = 4;
+    let playerCount = 3;
     const aiStyles = ['mcts', 'balanced', 'aggressive', 'defensive'];
     let selectedAiStyles = [0, 0, 0, 0, 0, 0, 0];
     let gameState = null;
@@ -407,30 +407,21 @@ document.addEventListener('DOMContentLoaded', () => {
             const hand = myPlayer.hand;
             const cardCount = hand.length;
             const cardWidth = 45;
-
-            // --- 핵심 수정: 겹치는 정도를 동적으로 더 여유있게 계산 ---
-            // 카드의 최소한으로 보여야 할 부분(px). 이 값을 늘리면 간격이 넓어집니다.
-            const minVisiblePart = 22; // 기존보다 약 1.5배 넓은 느낌으로 설정
-            const totalRequiredWidth = cardWidth + (cardCount - 1) * minVisiblePart;
-            let step = minVisiblePart;
-
-            // 만약 계산된 너비가 영역을 벗어나면, 그에 맞춰 간격을 압축합니다.
-            if (totalRequiredWidth > playerHandArea.offsetWidth * 0.95) {
-                step = (playerHandArea.offsetWidth * 0.95 - cardWidth) / (cardCount - 1);
-            }
-            // --- 수정 종료 ---
-
             const isMultiLine = cardCount > 15;
-            const cardsInRow1 = isMultiLine ? Math.ceil(cardCount / 2) : cardCount;
-            const cardsInRow2 = isMultiLine ? cardCount - cardsInRow1 : 0;
 
-            const totalWidth1 = cardWidth + (cardsInRow1 - 1) * step;
-            const startX1 = (playerHandArea.offsetWidth - totalWidth1) / 2;
-            
-            if(isMultiLine) {
+            if (isMultiLine) {
+                // --- 핵심 수정: 두 줄일 때 카드 간격을 테이블과 동일하게 22px로 고정 ---
+                const step = 22; 
+
+                const cardsInRow1 = Math.ceil(cardCount / 2);
+                const cardsInRow2 = cardCount - cardsInRow1;
+                const totalWidth1 = cardWidth + (cardsInRow1 - 1) * step;
+                const startX1 = (playerHandArea.offsetWidth - totalWidth1) / 2;
                 const totalWidth2 = cardWidth + (cardsInRow2 - 1) * step;
                 const startX2 = (playerHandArea.offsetWidth - totalWidth2) / 2;
-                 for (let i = 0; i < cardsInRow2; i++) {
+
+                // 아랫줄 그리기 (z-index가 높도록 나중에 그림)
+                for (let i = 0; i < cardsInRow2; i++) {
                     const handIndex = cardsInRow1 + i;
                     const rank = hand[handIndex];
                     const isSelected = selectedCards.indices.includes(handIndex);
@@ -441,17 +432,34 @@ document.addEventListener('DOMContentLoaded', () => {
                     cardElement.style.zIndex = 20 + i;
                     playerHandArea.appendChild(cardElement);
                 }
-            }
-            for (let i = 0; i < cardsInRow1; i++) {
-                 const handIndex = i;
-                 const rank = hand[handIndex];
-                 const isSelected = selectedCards.indices.includes(handIndex);
-                 const cardElement = createCardElement(rank, isSelected);
-                 cardElement.dataset.handIndex = handIndex;
-                 cardElement.style.left = `${startX1 + i * step}px`;
-                 cardElement.style.top = isMultiLine ? '15%' : '50%';
-                 cardElement.style.zIndex = i;
-                 playerHandArea.appendChild(cardElement);
+                // 윗줄 그리기
+                for (let i = 0; i < cardsInRow1; i++) {
+                    const handIndex = i;
+                    const rank = hand[handIndex];
+                    const isSelected = selectedCards.indices.includes(handIndex);
+                    const cardElement = createCardElement(rank, isSelected);
+                    cardElement.dataset.handIndex = handIndex;
+                    cardElement.style.left = `${startX1 + i * step}px`;
+                    cardElement.style.top = '15%';
+                    cardElement.style.zIndex = i;
+                    playerHandArea.appendChild(cardElement);
+                }
+            } else {
+                // 한 줄일 때의 로직 (기존과 동일)
+                const overlap = 22;
+                const totalWidth1 = cardWidth + (cardCount - 1) * overlap;
+                const startX1 = (playerHandArea.offsetWidth - totalWidth1) / 2;
+                for (let i = 0; i < cardCount; i++) {
+                    const handIndex = i;
+                    const rank = hand[handIndex];
+                    const isSelected = selectedCards.indices.includes(handIndex);
+                    const cardElement = createCardElement(rank, isSelected);
+                    cardElement.dataset.handIndex = handIndex;
+                    cardElement.style.left = `${startX1 + i * overlap}px`;
+                    cardElement.style.top = '50%';
+                    cardElement.style.zIndex = i;
+                    playerHandArea.appendChild(cardElement);
+                }
             }
         }
 
@@ -493,6 +501,7 @@ document.addEventListener('DOMContentLoaded', () => {
         submitBtn.disabled = !isMyActualTurn || hasPassedThisRound;
         passBtn.disabled = !isMyActualTurn;
     }
+
 
 
     // =========================================
