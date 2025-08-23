@@ -98,18 +98,16 @@ class PlayerHandWidget(RelativeLayout):
 
         if total_cards <= ROW_THRESHOLD:
             # --- 한 줄 로직 ---
-            card_width = self.width * 0.2
+            card_width = self.width * 0.12
             card_height = self.height * 0.8
             
-            # --- 핵심 수정: 겹치는 정도를 동적으로 더 여유있게 계산 ---
-            min_visible_part = card_width * 0.5 # 카드의 최소 40%는 보이도록 설정 (기존보다 넓게)
-            total_required_width = card_width + (total_cards - 1) * min_visible_part
+            # 사용 가능한 렌더링 폭을 95%로 늘림
+            total_render_width = self.width * 0.95
+            min_visible_part = card_width * 0.4 
             
             step_x = min_visible_part
-            # 만약 계산된 너비가 실제 영역보다 작아서 공간이 남는다면, 간격을 더 넓혀줌
-            if total_required_width < self.width * 0.95 and total_cards > 1:
-                step_x = (self.width * 0.95 - card_width) / (total_cards - 1)
-            # --- 수정 종료 ---
+            if card_width + (total_cards - 1) * min_visible_part < total_render_width and total_cards > 1:
+                step_x = (total_render_width - card_width) / (total_cards - 1)
 
             start_x = (self.width - (card_width + step_x * (total_cards - 1))) / 2
             
@@ -125,11 +123,13 @@ class PlayerHandWidget(RelativeLayout):
                 card_width = self.width * 0.10
                 card_height = self.height * 0.55
                 
-                min_visible_part = card_width * 0.7
-                total_required_width = card_width + (count - 1) * min_visible_part
+                # --- 핵심 수정: 렌더링 폭을 100%로 사용하여 양옆 여백을 최소화 ---
+                total_render_width = self.width
+                min_visible_part = card_width * 0.4
+                
                 step_x = min_visible_part
-                # if total_required_width < self.width * 1.2 and count > 1:
-                #     step_x = (self.width * 1.2 - card_width) / (count - 1)
+                if card_width + (count - 1) * min_visible_part < total_render_width and count > 1:
+                    step_x = (total_render_width - card_width) / (count - 1)
 
                 start_x = (self.width - (card_width + step_x * (count - 1))) / 2
                 for i in range(count):
