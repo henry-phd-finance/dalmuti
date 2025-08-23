@@ -410,7 +410,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // --- 핵심 수정: 겹치는 정도를 동적으로 더 여유있게 계산 ---
             // 카드의 최소한으로 보여야 할 부분(px). 이 값을 늘리면 간격이 넓어집니다.
-            const minVisiblePart = 25; // 기존보다 약 1.5배 넓은 느낌으로 설정
+            const minVisiblePart = 22; // 기존보다 약 1.5배 넓은 느낌으로 설정
             const totalRequiredWidth = cardWidth + (cardCount - 1) * minVisiblePart;
             let step = minVisiblePart;
 
