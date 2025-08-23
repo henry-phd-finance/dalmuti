@@ -98,7 +98,7 @@ class PlayerHandWidget(RelativeLayout):
 
         if total_cards <= ROW_THRESHOLD:
             # --- 한 줄 로직 ---
-            card_width = self.width * 0.12
+            card_width = self.width * 0.10
             card_height = self.height * 0.8
             
             # 사용 가능한 렌더링 폭을 95%로 늘림
