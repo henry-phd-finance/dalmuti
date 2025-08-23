@@ -54,7 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 게임 상태 변수 ---
     let playerCount = 4;
-    const aiStyles = ['mcts_pro', 'mcts', 'balanced', 'aggressive', 'defensive'];
+    const aiStyles = ['mcts_pro', 'mcts'];
     let selectedAiStyles = [0, 1, 0, 0, 0, 0, 0];
     let gameState = null;
     let selectedCards = { indices: [], base_rank: null };
