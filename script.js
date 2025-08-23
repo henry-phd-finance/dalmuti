@@ -53,7 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const passBtn = document.getElementById('pass-btn');
 
     // --- 게임 상태 변수 ---
-    let playerCount = 3;
+    let playerCount = 4;
     const aiStyles = ['mcts', 'balanced', 'aggressive', 'defensive'];
     let selectedAiStyles = [0, 0, 0, 0, 0, 0, 0];
     let gameState = null;
