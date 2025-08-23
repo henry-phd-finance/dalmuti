@@ -389,7 +389,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return card;
     }
 
-        function updateUI() {
+    function updateUI() {
         if (!gameState) return;
 
         if (gameState.gameOver) {
