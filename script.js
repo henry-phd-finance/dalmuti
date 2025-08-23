@@ -230,7 +230,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             
-            moves.push("pass");
+            if (this.tableCards.cards.length > 0) {
+                moves.push("pass");
+            }
+            // 만약 가능한 수가 하나도 없다면(이론상 발생하면 안 됨), 패스를 강제로 추가
+            if (moves.length === 0 && player.hand.length > 0) {
+                moves.push("pass");
+            }
             return moves;
         }
 
@@ -457,8 +463,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const isMyActualTurn = myPlayer && gameState.turnIndex === myPlayerIndex;
         const hasPassedThisRound = myPlayer && gameState.passedInRound.has(myPlayerIndex);
 
+        const isStartOfRound = gameState.tableCards.cards.length === 0;
+
+        // Submit 버튼은 내 턴이고, 아직 패스하지 않았을 때만 활성화
         submitBtn.disabled = !isMyActualTurn || hasPassedThisRound;
-        passBtn.disabled = !isMyActualTurn;
+        // Pass 버튼은 내 턴이면서, 라운드의 시작이 아닐 때만 활성화
+        passBtn.disabled = !isMyActualTurn || (isMyActualTurn && isStartOfRound);
     }
 
 
