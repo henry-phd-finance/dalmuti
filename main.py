@@ -75,8 +75,7 @@ class PlayerHandWidget(RelativeLayout):
         self.card_widgets = []
 
     def update_hand(self, hand_ranks, selected_indices):
-        # 위젯의 크기가 아직 계산되지 않았다면, 다음 프레임에 다시 시도
-        if self.width == 100 and self.height == 100: # Kivy의 기본 초기 크기
+        if self.width == 100 and self.height == 100:
             Clock.schedule_once(lambda dt: self.update_hand(hand_ranks, selected_indices))
             return
 
@@ -85,11 +84,11 @@ class PlayerHandWidget(RelativeLayout):
         total_cards = len(hand_ranks)
         if total_cards == 0: return
 
-        ROW_THRESHOLD = 15 # 두 줄로 나뉘는 기준 카드 수
+        ROW_THRESHOLD = 15
 
         def create_card_widget(rank, index, x, y, width, height):
             is_selected = index in selected_indices
-            y_offset = 20 if is_selected else 0 # 선택 시 y축으로 20픽셀 이동
+            y_offset = 20 if is_selected else 0
             
             card = CardWidget(rank=rank, size=(width, height), pos=(x, y + y_offset), size_hint=(None, None))
             card.bind(on_press=partial(App.get_running_app().on_card_press, index))
@@ -97,52 +96,33 @@ class PlayerHandWidget(RelativeLayout):
             return card
 
         if total_cards <= ROW_THRESHOLD:
-            # --- 한 줄 로직 ---
-            card_width = self.width * 0.10
+            card_width = self.width * 0.12
             card_height = self.height * 0.8
+            render_area = self.width * 0.95
             
-            # 사용 가능한 렌더링 폭을 95%로 늘림
-            total_render_width = self.width * 0.95
-            min_visible_part = card_width * 0.4 
-            
-            step_x = min_visible_part
-            if card_width + (total_cards - 1) * min_visible_part < total_render_width and total_cards > 1:
-                step_x = (total_render_width - card_width) / (total_cards - 1)
-
+            step_x = (render_area - card_width) / (total_cards - 1) if total_cards > 1 else 0
             start_x = (self.width - (card_width + step_x * (total_cards - 1))) / 2
             
             for i, rank in enumerate(hand_ranks):
-                widget = create_card_widget(rank, i, start_x + i * step_x, self.height * 0.1, card_width, card_height)
-                self.add_widget(widget)
+                self.add_widget(create_card_widget(rank, i, start_x + i * step_x, self.height * 0.1, card_width, card_height))
         else:
-            # --- 두 줄 로직 ---
             top_row_count = total_cards // 2
             bottom_row_count = total_cards - top_row_count
             
             def process_row(count, ranks, start_idx, y_pos):
                 card_width = self.width * 0.10
                 card_height = self.height * 0.55
+                render_area = self.width # 두 줄일 땐 공간을 100% 사용
                 
-                # --- 핵심 수정: 렌더링 폭을 100%로 사용하여 양옆 여백을 최소화 ---
-                total_render_width = self.width
-                min_visible_part = card_width * 0.4
-                
-                step_x = min_visible_part
-                if card_width + (count - 1) * min_visible_part < total_render_width and count > 1:
-                    step_x = (total_render_width - card_width) / (count - 1)
-
+                step_x = (render_area - card_width) / (count - 1) if count > 1 else 0
                 start_x = (self.width - (card_width + step_x * (count - 1))) / 2
+                
                 for i in range(count):
-                    original_index = start_idx + i
-                    rank = ranks[i]
-                    widget = create_card_widget(rank, original_index, start_x + i * step_x, y_pos, card_width, card_height)
-                    yield widget
+                    self.add_widget(create_card_widget(ranks[i], start_idx + i, start_x + i * step_x, y_pos, card_width, card_height))
 
-            # Kivy는 나중에 추가된 위젯을 위에 그림 (아랫줄이 윗줄을 덮도록)
-            for widget in process_row(top_row_count, hand_ranks[:top_row_count], 0, self.height * 0.4):
-                self.add_widget(widget)
-            for widget in process_row(bottom_row_count, hand_ranks[top_row_count:], top_row_count, self.height * 0.05):
-                self.add_widget(widget)
+            process_row(top_row_count, hand_ranks[:top_row_count], 0, self.height * 0.4)
+            process_row(bottom_row_count, hand_ranks[top_row_count:], top_row_count, self.height * 0.05)
+
 
 
 
@@ -276,26 +256,33 @@ class DalmutiApp(App):
         self.main_container.add_widget(main_layout)
         Clock.schedule_once(lambda dt: self.update_ui())
 
-    def create_main_game_layout(self):
+        def create_main_game_layout(self):
         root = BoxLayout(spacing=10, padding=10)
-        self.log_widget = LogWidget(size_hint_x=0.3)
-        center_layout = BoxLayout(orientation='vertical', size_hint_x=0.4, spacing=10)
+        
+        # --- 핵심 수정: 중앙 패널의 너비 비율(size_hint_x) 조정 ---
+        self.log_widget = LogWidget(size_hint_x=0.25)
+        center_layout = BoxLayout(orientation='vertical', size_hint_x=0.5, spacing=10)
+        self.other_players_widget = OtherPlayersWidget(size_hint_x=0.25)
+        # --- 수정 종료 ---
+
         self.table_widget = TableWidget(size_hint_y=0.4)
         self.player_hand_widget = PlayerHandWidget(size_hint_y=0.3)
         action_bar = BoxLayout(size_hint_y=None, height='50dp', spacing=10)
         submit_button = Button(text='Submit'); submit_button.bind(on_press=self.on_submit)
         pass_button = Button(text='Pass'); pass_button.bind(on_press=self.on_pass)
         action_bar.add_widget(submit_button); action_bar.add_widget(pass_button)
+        
         center_layout.add_widget(Label(text="Table", size_hint_y=None, height='30dp'))
         center_layout.add_widget(self.table_widget)
         center_layout.add_widget(Label(text="Your Hand", size_hint_y=None, height='30dp'))
         center_layout.add_widget(self.player_hand_widget)
         center_layout.add_widget(action_bar)
-        self.other_players_widget = OtherPlayersWidget(size_hint_x=0.3)
+
         root.add_widget(self.log_widget)
         root.add_widget(center_layout)
         root.add_widget(self.other_players_widget)
         return root
+
 
     def on_card_press(self, card_hand_index, *args):
         if self.game_state.turn_index != 0: return
