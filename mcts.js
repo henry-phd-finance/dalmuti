@@ -115,3 +115,80 @@ class MCTS_AI {
         return bestChild.move;
     }
 }
+
+class MCTS_PRO_AI {
+    constructor({ iterations = 1000 }) {
+        this.iterations = iterations;
+    }
+
+    _create_determinized_state(currentState) {
+        const determinizedState = currentState.clone();
+        const rootPlayerIndex = currentState.turnIndex;
+        const myHand = currentState.players[rootPlayerIndex].hand;
+        const tableCards = currentState.tableCards.cards;
+
+        const fullDeck = [];
+        for (let i = 1; i <= 12; i++) { for (let j = 0; j < i; j++) fullDeck.push(i); }
+        fullDeck.push(13, 13);
+
+        const knownCards = [...myHand, ...tableCards];
+        const unknownCardPool = fullDeck.filter(card => {
+            const index = knownCards.indexOf(card);
+            if (index > -1) {
+                knownCards.splice(index, 1);
+                return false;
+            }
+            return true;
+        });
+
+        for (let i = unknownCardPool.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [unknownCardPool[i], unknownCardPool[j]] = [unknownCardPool[j], unknownCardPool[i]];
+        }
+
+        let cardPoolIndex = 0;
+        for (let i = 0; i < determinizedState.numPlayers; i++) {
+            if (i !== rootPlayerIndex) {
+                const otherPlayer = determinizedState.players[i];
+                const handSize = otherPlayer.hand.length;
+                otherPlayer.hand = unknownCardPool.slice(cardPoolIndex, cardPoolIndex + handSize);
+                otherPlayer.sortHand();
+                cardPoolIndex += handSize;
+            }
+        }
+        
+        return determinizedState;
+    }
+
+    find_best_move(initialState) {
+        const rootNode = new MCTS_Pro_Node(initialState);
+        const rootPlayerIndex = initialState.turnIndex;
+
+        for (let i = 0; i < this.iterations; i++) {
+            let node = rootNode;
+            
+            while (node.unexploredMoves.length === 0 && node.children.length > 0) {
+                node = node.select_child();
+            }
+            if (node.unexploredMoves.length > 0) {
+                node = node.expand();
+            }
+
+            const determinizedState = this._create_determinized_state(node.gameState);
+
+            let simState = determinizedState;
+            while (!simState.gameOver) {
+                const moves = simState.get_possible_moves();
+                const randomMove = moves[Math.floor(Math.random() * moves.length)];
+                simState = simState.make_move(randomMove);
+            }
+
+            const result = simState.winnerIndex === rootPlayerIndex ? 1 : 0;
+            node.update(result);
+        }
+
+        if (rootNode.children.length === 0) return "pass";
+        const bestChild = rootNode.children.sort((a, b) => b.visits - a.visits)[0];
+        return bestChild.move;
+    }
+}

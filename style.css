@@ -38,10 +38,7 @@ body, html {
 
 /* 설정 화면 */
 #setup-screen {
-    /* --- 핵심 수정: 요소들을 위에서부터 차곡차곡 쌓도록 변경 --- */
-    justify-content: flex-start;
-    padding-top: 5vh; /* 상단 여백 추가 */
-    gap: 20px;
+    justify-content: space-around;
 }
 .title { font-size: 2.5em; }
 .setup-control {
@@ -57,17 +54,6 @@ body, html {
 }
 .ai-style-selector { margin-bottom: 10px; }
 #player-count-display, .ai-style-display { font-size: 1.5em; }
-
-/* --- 핵심 수정: AI 스타일 목록이 길어지면 스크롤되도록 변경 --- */
-#ai-styles-container {
-    flex-grow: 1; /* 남은 공간을 최대한 차지 */
-    overflow-y: auto; /* 내용이 넘치면 세로 스크롤바 자동 생성 */
-    width: 90%;
-    max-width: 400px;
-    padding: 10px;
-    border: 1px solid #444;
-    border-radius: 8px;
-}
 
 /* 메인 게임 화면 레이아웃 */
 #main-game-screen {
@@ -90,11 +76,11 @@ body, html {
 }
 #table-area {
     flex-grow: 3;
-    position: relative;
+    position: relative; /* 카드 위치 기준 */
 }
 #log-panel {
-    flex-grow: 1.5;
-    max-height: 110px;
+    flex-grow: 1.5; /* 높이를 제한하고 */
+    max-height: 110px; /* 스크롤 가능하도록 */
     align-items: flex-start;
     background-color: var(--panel-background);
     border-radius: 8px;
@@ -102,14 +88,14 @@ body, html {
 #log-content {
     width: 100%;
     height: 100%;
-    overflow-y: auto;
+    overflow-y: auto; /* 내용이 많아지면 스크롤 */
     font-size: 0.7em;
 }
 #log-content p { margin: 2px 5px; }
 
 #player-hand-area {
     flex-grow: 4;
-    position: relative;
+    position: relative; /* 카드 위치 기준 */
 }
 
 /* 카드 스타일 */
@@ -153,6 +139,7 @@ body, html {
     display: flex;
     width: 100%;
     justify-content: space-around;
+    gap: 20px; /* 버튼 사이 간격 */
     padding: 10px 0;
 }
 .action-button, .style-change-btn, #minus-player-btn, #plus-player-btn {
@@ -163,6 +150,12 @@ body, html {
     color: white;
     cursor: pointer;
 }
+
+/* --- 핵심 수정: 버튼들이 공간을 균등하게 차지하도록 설정 --- */
+#submit-btn, #pass-btn {
+    flex: 1; /* flex-grow: 1, flex-shrink: 1, flex-basis: 0% */
+}
+
 #submit-btn { background-color: var(--button-bg); }
 #pass-btn { background-color: var(--button-pass-bg); }
 .action-button:disabled {

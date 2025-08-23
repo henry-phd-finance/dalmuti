@@ -53,7 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 게임 상태 변수 ---
     let playerCount = 4;
-    const aiStyles = ['mcts_pro', 'mcts', 'balanced', 'aggressive', 'defensive'];
+    const aiStyles = ['mcts', 'balanced', 'aggressive', 'defensive'];
     let selectedAiStyles = [0, 0, 0, 0, 0, 0, 0];
     let gameState = null;
     let selectedCards = { indices: [], base_rank: null };
@@ -282,7 +282,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return card;
     }
 
-    function updateUI() {
+        function updateUI() {
         if (!gameState) return;
 
         if (gameState.gameOver) {
@@ -300,15 +300,28 @@ document.addEventListener('DOMContentLoaded', () => {
             const hand = myPlayer.hand;
             const cardCount = hand.length;
             const cardWidth = 45;
-            const overlap = Math.min(28, playerHandArea.offsetWidth / (cardCount + 1));
+
+            // --- 핵심 수정: 겹치는 정도를 동적으로 더 여유있게 계산 ---
+            // 카드의 최소한으로 보여야 할 부분(px). 이 값을 늘리면 간격이 넓어집니다.
+            const minVisiblePart = 25; // 기존보다 약 1.5배 넓은 느낌으로 설정
+            const totalRequiredWidth = cardWidth + (cardCount - 1) * minVisiblePart;
+            let step = minVisiblePart;
+
+            // 만약 계산된 너비가 영역을 벗어나면, 그에 맞춰 간격을 압축합니다.
+            if (totalRequiredWidth > playerHandArea.offsetWidth * 0.95) {
+                step = (playerHandArea.offsetWidth * 0.95 - cardWidth) / (cardCount - 1);
+            }
+            // --- 수정 종료 ---
+
             const isMultiLine = cardCount > 15;
             const cardsInRow1 = isMultiLine ? Math.ceil(cardCount / 2) : cardCount;
             const cardsInRow2 = isMultiLine ? cardCount - cardsInRow1 : 0;
-            const totalWidth1 = cardWidth + (cardsInRow1 - 1) * overlap;
+
+            const totalWidth1 = cardWidth + (cardsInRow1 - 1) * step;
             const startX1 = (playerHandArea.offsetWidth - totalWidth1) / 2;
             
             if(isMultiLine) {
-                const totalWidth2 = cardWidth + (cardsInRow2 - 1) * overlap;
+                const totalWidth2 = cardWidth + (cardsInRow2 - 1) * step;
                 const startX2 = (playerHandArea.offsetWidth - totalWidth2) / 2;
                  for (let i = 0; i < cardsInRow2; i++) {
                     const handIndex = cardsInRow1 + i;
@@ -316,7 +329,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const isSelected = selectedCards.indices.includes(handIndex);
                     const cardElement = createCardElement(rank, isSelected);
                     cardElement.dataset.handIndex = handIndex;
-                    cardElement.style.left = `${startX2 + i * overlap}px`;
+                    cardElement.style.left = `${startX2 + i * step}px`;
                     cardElement.style.top = '55%';
                     cardElement.style.zIndex = 20 + i;
                     playerHandArea.appendChild(cardElement);
@@ -328,7 +341,7 @@ document.addEventListener('DOMContentLoaded', () => {
                  const isSelected = selectedCards.indices.includes(handIndex);
                  const cardElement = createCardElement(rank, isSelected);
                  cardElement.dataset.handIndex = handIndex;
-                 cardElement.style.left = `${startX1 + i * overlap}px`;
+                 cardElement.style.left = `${startX1 + i * step}px`;
                  cardElement.style.top = isMultiLine ? '15%' : '50%';
                  cardElement.style.zIndex = i;
                  playerHandArea.appendChild(cardElement);
@@ -369,10 +382,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const myPlayerIndex = myPlayer ? gameState.players.indexOf(myPlayer) : -1;
         const isMyActualTurn = myPlayer && gameState.turnIndex === myPlayerIndex;
         const hasPassedThisRound = myPlayer && gameState.passedInRound.has(myPlayerIndex);
-      
+
         submitBtn.disabled = !isMyActualTurn || hasPassedThisRound;
         passBtn.disabled = !isMyActualTurn;
     }
+
 
     // =========================================
     // 게임 진행 로직
@@ -424,7 +438,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- 핵심 수정: 'mcts_pro' 스타일일 때 새로운 AI를 호출 ---
         else if (style === 'mcts_pro') {
             console.log(`${player.name} (MCTS-Pro) is thinking...`);
-            const mcts_pro = new MCTS_Pro_AI({ iterations: 1000 }); // Pro 버전 호출
+            const mcts_pro = new MCTS_PRO_AI({ iterations: 1000 }); // Pro 버전 호출
             best_play = mcts_pro.find_best_move(gameState);
         }
         else {
