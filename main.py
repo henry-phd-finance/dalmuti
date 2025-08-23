@@ -128,8 +128,8 @@ class PlayerHandWidget(RelativeLayout):
                 min_visible_part = card_width * 0.5
                 total_required_width = card_width + (count - 1) * min_visible_part
                 step_x = min_visible_part
-                if total_required_width < self.width * 1.2 and count > 1:
-                    step_x = (self.width * 1.2 - card_width) / (count - 1)
+                # if total_required_width < self.width * 1.2 and count > 1:
+                #     step_x = (self.width * 1.2 - card_width) / (count - 1)
 
                 start_x = (self.width - (card_width + step_x * (count - 1))) / 2
                 for i in range(count):
