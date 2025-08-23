@@ -50,7 +50,7 @@ class CardWidget(Button):
         self.background_down = ''
         
         self.text = "J" if rank == 13 else str(rank)
-        self.font_size = '20sp'
+        self.font_size = '10sp'
         self.bold = True
         self.color = (1, 1, 1, 1)
         self.halign = 'left'
