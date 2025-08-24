@@ -51,6 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const playerHandArea = document.getElementById('player-hand-area');
     const submitBtn = document.getElementById('submit-btn');
     const passBtn = document.getElementById('pass-btn');
+    const forceStartCheckbox = document.getElementById('force-start-checkbox');
 
     // --- 게임 상태 변수 ---
     let playerCount = 4;
@@ -77,14 +78,10 @@ document.addEventListener('DOMContentLoaded', () => {
     class GameState {
         /**
          * @param {string[]} playerStyles - 플레이어 스타일 목록
-         * @param {boolean} isClone - 복제용으로 생성되는지 여부
+         * @param {object} options - 추가 게임 옵션 (예: forceHumanStart)
+         * @param {boolean} isClone - 이 객체가 복제용으로 생성되는지 여부
          */
-        constructor(playerStyles, isClone = false) {
-            // 복제용으로 생성될 때는 초기화 로직을 건너뜁니다.
-            if (isClone) {
-                return;
-            }
-
+        constructor(playerStyles, options = {}, isClone = false) {
             this.players = [];
             const isHumanInGame = playerStyles.includes("You");
             playerStyles.forEach((style, i) => {
@@ -92,11 +89,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 const name = isAi ? `AI ${isHumanInGame ? i : i + 1}` : "You";
                 this.players.push(new Player(name, isAi, style));
             });
+            
             this.numPlayers = this.players.length;
-            this.turnIndex = 0; this.roundLeadIndex = 0; this.tableCards = { cards: [], effectiveRank: 0 };
-            this.passedInRound = new Set(); this.consecutivePasses = 0; this.gameOver = false;
-            this.winnerIndex = -1; this.gameLog = [];
-            this._setupDeckAndDeal();
+            this.turnIndex = 0; 
+            this.roundLeadIndex = 0; 
+            this.tableCards = { cards: [], effectiveRank: 0 };
+            this.passedInRound = new Set(); 
+            this.consecutivePasses = 0; 
+            this.gameOver = false;
+            this.winnerIndex = -1; 
+            this.gameLog = [];
+            
+            // 옵션 값을 저장
+            this.forceHumanStart = options.forceHumanStart || false;
+
+            // 복제용이 아닐 때만 덱을 생성하고 카드를 나눕니다.
+            if (!isClone) {
+                this._setupDeckAndDeal();
+            }
         }
 
         _setupDeckAndDeal() {
@@ -104,80 +114,50 @@ document.addEventListener('DOMContentLoaded', () => {
             for (let i = 1; i <= 12; i++) { for (let j = 0; j < i; j++) deck.push(i); }
             deck.push(13, 13);
 
-            // 1. 덱을 먼저 셔플합니다.
+            const humanPlayer = this.players.find(p => !p.isAi);
+            const humanPlayerIndex = humanPlayer ? this.players.indexOf(humanPlayer) : -1;
+
+            if (JOKER_DEBUG_MODE && humanPlayerIndex !== -1) {
+                const joker1Index = deck.indexOf(13);
+                if(joker1Index > -1) deck.splice(joker1Index, 1);
+                const joker2Index = deck.indexOf(13);
+                if(joker2Index > -1) deck.splice(joker2Index, 1);
+                
+                this.players[humanPlayerIndex].hand.push(13, 13);
+                this.log(">>> JOKER DEBUG MODE: You received 2 Jokers!");
+            }
+
             for (let i = deck.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [deck[i], deck[j]] = [deck[j], deck[i]];
             }
 
-            // 2. 모든 카드를 플레이어에게 공평하게 나눠줍니다.
-            deck.forEach((card, i) => {
-                this.players[i % this.numPlayers].hand.push(card);
+            let playerIdx = 0;
+            deck.forEach(card => {
+                this.players[playerIdx].hand.push(card);
+                playerIdx = (playerIdx + 1) % this.numPlayers;
             });
 
-            // --- 핵심 수정: 카드 분배 *후에* 교환(Swap) 로직 실행 ---
-            const humanPlayer = this.players.find(p => !p.isAi);
-            const humanPlayerIndex = humanPlayer ? this.players.indexOf(humanPlayer) : -1;
-
-            if (JOKER_DEBUG_MODE && humanPlayerIndex !== -1) {
-                this.log(">>> JOKER DEBUG MODE: Swapping cards...");
-                
-                // 3. 다른 AI 플레이어들의 손에서 조커를 찾습니다.
-                for (let aiIndex = 0; aiIndex < this.numPlayers; aiIndex++) {
-                    if (aiIndex === humanPlayerIndex) continue;
-                    
-                    const aiPlayer = this.players[aiIndex];
-                    let jokerIndexInAI = aiPlayer.hand.indexOf(13);
-                    
-                    // AI가 조커를 가지고 있다면 교환을 시도합니다.
-                    while (jokerIndexInAI !== -1) {
-                        // 당신의 손에서 조커가 아닌 카드를 찾습니다.
-                        let cardToSwapIndex = -1;
-                        for (let i = 0; i < humanPlayer.hand.length; i++) {
-                            if (humanPlayer.hand[i] !== 13) {
-                                cardToSwapIndex = i;
-                                break;
-                            }
-                        }
-                        
-                        // 교환할 카드가 있다면 교환합니다.
-                        if (cardToSwapIndex !== -1) {
-                            const cardToGiveToAI = humanPlayer.hand[cardToSwapIndex];
-                            
-                            // AI의 조커를 당신에게 주고, 당신의 카드를 AI에게 줍니다.
-                            humanPlayer.hand[cardToSwapIndex] = 13;
-                            aiPlayer.hand[jokerIndexInAI] = cardToGiveToAI;
-                        } else {
-                            // 당신이 조커만 들고 있어서 교환할 카드가 없는 경우는 드물지만,
-                            // 이 경우 교환을 중단합니다.
-                            break; 
-                        }
-                        
-                        // AI의 손에 또 다른 조커가 있는지 확인합니다.
-                        jokerIndexInAI = aiPlayer.hand.indexOf(13, jokerIndexInAI + 1);
-                    }
-                }
-            }
-            // --- 수정 종료 ---
-
-            // 4. 모든 플레이어의 손패를 정렬하고 턴을 정합니다.
             this.players.forEach(p => p.sortHand());
-            this.turnIndex = this.roundLeadIndex = Math.floor(Math.random() * this.numPlayers);
+
+            if (this.forceHumanStart && humanPlayerIndex !== -1) {
+                this.turnIndex = humanPlayerIndex;
+            } else {
+                this.turnIndex = Math.floor(Math.random() * this.numPlayers);
+            }
+
+            this.roundLeadIndex = this.turnIndex;
             this.log("--- New Game Started ---");
             this.log(`First turn: ${this.players[this.turnIndex].name}`);
         }
-
-
+        
         log(message) { this.gameLog.push(message); }
         getCurrentPlayer() { return this.players[this.turnIndex]; }
 
-        /**
-         * MCTS를 위한 새로운 함수 1: 현재 상태의 완벽한 복사본을 만듭니다.
-         */
         clone() {
-            const clonedState = new GameState([], true); // 비어있는 객체 생성
+            const clonedState = new GameState([], {}, true);
             clonedState.numPlayers = this.numPlayers;
-            clonedState.players = JSON.parse(JSON.stringify(this.players)); // 손패까지 완벽 복사
+            clonedState.players = JSON.parse(JSON.stringify(this.players));
             clonedState.turnIndex = this.turnIndex;
             clonedState.roundLeadIndex = this.roundLeadIndex;
             clonedState.tableCards = JSON.parse(JSON.stringify(this.tableCards));
@@ -185,13 +165,10 @@ document.addEventListener('DOMContentLoaded', () => {
             clonedState.consecutivePasses = this.consecutivePasses;
             clonedState.gameOver = this.gameOver;
             clonedState.winnerIndex = this.winnerIndex;
-            clonedState.gameLog = []; // 로그는 시뮬레이션에 필요 없으므로 비워둠
+            clonedState.gameLog = [];
             return clonedState;
         }
 
-        /**
-         * MCTS를 위한 새로운 함수 2: 현재 턴의 플레이어가 할 수 있는 모든 행동을 반환합니다.
-         */
         get_possible_moves() {
             if (this.passedInRound.has(this.turnIndex)) return ["pass"];
             const moves = [];
@@ -199,58 +176,48 @@ document.addEventListener('DOMContentLoaded', () => {
             const handCounts = player.hand.reduce((acc, card) => { acc[card] = (acc[card] || 0) + 1; return acc; }, {});
             const numJokers = handCounts[13] || 0;
             
-            // 1. 조커 없이 내는 경우
             for (const r in handCounts) {
                 const rank = parseInt(r);
                 if (rank === 13) continue;
                 const count = handCounts[rank];
-                if (this.is_valid_move(this.turnIndex, rank, count)) {
-                    moves.push({ rank, count });
-                }
+                if (this.is_valid_move(this.turnIndex, rank, count)) moves.push({ rank, count });
             }
-            // 2. 다른 카드와 조커를 '섞어서' 내는 경우
             if (numJokers > 0) {
                 for (const r in handCounts) {
                     const rank = parseInt(r);
                     if (rank === 13) continue;
                     const nativeCount = handCounts[rank];
                     for (let j = 1; j <= numJokers; j++) {
-                        if (this.is_valid_move(this.turnIndex, rank, nativeCount + j)) {
-                            moves.push({ rank, count: nativeCount + j });
-                        }
+                        if (this.is_valid_move(this.turnIndex, rank, nativeCount + j)) moves.push({ rank, count: nativeCount + j });
                     }
                 }
             }
-            // 3. 조커'만' 단독으로 내는 경우 (rank를 13으로 명시)
             if (numJokers > 0) {
                 for (let c = 1; c <= numJokers; c++) {
-                    if (this.is_valid_move(this.turnIndex, 13, c)) {
-                        moves.push({ rank: 13, count: c });
-                    }
+                    if (this.is_valid_move(this.turnIndex, 13, c)) moves.push({ rank: 13, count: c });
                 }
             }
             
-            if (this.tableCards.cards.length > 0) {
+            if (this.tableCards.cards.length > 0 || (this.tableCards.cards.length === 0 && player.hand.length > 0)) {
                 moves.push("pass");
             }
-            // 만약 가능한 수가 하나도 없다면(이론상 발생하면 안 됨), 패스를 강제로 추가
-            if (moves.length === 0 && player.hand.length > 0) {
-                moves.push("pass");
+            if (moves.length === 0 && player.hand.length > 0) moves.push("pass");
+            
+            // 라운드 시작 시에는 패스 불가
+            if (this.tableCards.cards.length === 0) {
+                return moves.filter(move => move !== "pass");
             }
             return moves;
         }
 
-        /**
-         * MCTS를 위한 새로운 함수 3: 특정 행동을 실행하고, 그 결과로 나타나는 '다음 상태'를 반환합니다.
-         */
         make_move(move) {
-            const newState = this.clone(); // 현재 상태를 복사
+            const newState = this.clone();
             if (move === "pass") {
                 newState.player_pass(newState.turnIndex);
             } else {
                 newState.play_cards(newState.turnIndex, move.rank, move.count);
             }
-            return newState; // 변경이 적용된 새로운 상태를 반환
+            return newState;
         }
 
         is_valid_move(playerIndex, rank, count) {
@@ -268,7 +235,6 @@ document.addEventListener('DOMContentLoaded', () => {
         play_cards(playerIndex, rank, count, explicitRemovals = null) {
             const player = this.players[playerIndex];
             let nativeToUse, jokersToUse;
-
             if (explicitRemovals) {
                 nativeToUse = explicitRemovals.native;
                 jokersToUse = explicitRemovals.jokers;
@@ -278,19 +244,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 jokersToUse = Math.max(0, count - nativeAvailable);
                 nativeToUse = count - jokersToUse;
             }
-
             for (let i = 0; i < nativeToUse; i++) player.hand.splice(player.hand.indexOf(rank), 1);
             for (let i = 0; i < jokersToUse; i++) player.hand.splice(player.hand.indexOf(13), 1);
-            
-            this.tableCards = {
-                cards: Array(nativeToUse).fill(rank).concat(Array(jokersToUse).fill(13)),
-                effectiveRank: rank
-            };
+            this.tableCards = { cards: Array(nativeToUse).fill(rank).concat(Array(jokersToUse).fill(13)), effectiveRank: rank };
             this.log(`${player.name} plays ${count}x card ${rank} (eff).`);
-            
             this.consecutivePasses = 0;
             this.roundLeadIndex = playerIndex;
-
             if (player.hand.length === 0) {
                 this.gameOver = true;
                 this.winnerIndex = playerIndex;
@@ -307,10 +266,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             this.passedInRound.add(playerIndex);
             this.consecutivePasses++;
-
             const activePlayersWithCards = this.players.filter(p => p.hand.length > 0);
             const unpassedPlayerCount = activePlayersWithCards.filter(p => !this.passedInRound.has(this.players.indexOf(p))).length;
-
             if (unpassedPlayerCount <= 1 && activePlayersWithCards.length > 1) {
                 this.log(`--- New round starts ---`);
                 this.tableCards = { cards: [], effectiveRank: 0 };
@@ -331,6 +288,7 @@ document.addEventListener('DOMContentLoaded', () => {
             while (this.players[this.turnIndex].hand.length === 0);
         }
     }
+
 
     // =========================================
     // UI 렌더링 함수
@@ -681,7 +639,10 @@ document.addEventListener('DOMContentLoaded', () => {
         for(let i=0; i < playerCount - playerIndexOffset; i++) {
             finalPlayerStyles.push(aiStyles[selectedAiStyles[i]]);
         }
-        gameState = new GameState(finalPlayerStyles);
+        const gameOptions = {
+            forceHumanStart: forceStartCheckbox.checked
+        };
+        gameState = new GameState(finalPlayerStyles, gameOptions);
         setupScreen.classList.remove('active');
         mainGameScreen.classList.add('active');
         updateUI();

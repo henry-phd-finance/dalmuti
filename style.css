@@ -180,3 +180,19 @@ body, html {
 #game-over-screen {
     text-align: center;
 }
+
+.checkbox-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin-top: 15px;
+    font-size: 1.1em;
+}
+
+#force-start-checkbox {
+    /* 체크박스의 크기를 키워서 터치하기 쉽게 만듭니다. */
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
